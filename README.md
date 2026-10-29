@@ -1,6 +1,6 @@
 # Liquid Agent
 
-A private AI agent for your Mac that runs **LFM3 1.7B** and **LFM3 Omni 2B** entirely on your computer, with a clean web interface in your browser.
+A private AI agent for your Mac and Linux that runs **LFM3 1.7B** and **LFM3 Omni 2B** entirely on your computer, with a clean web interface in your browser.
 
 - **Chat** with full Markdown: tables, code with highlighting and copy buttons, math, task lists.
 - **Does things on your Mac**: runs commands, reads and writes files, searches and reads the web, opens apps and links, sets reminders, uses the clipboard, and clicks around websites with [Betterwright](https://www.npmjs.com/package/betterwright).
@@ -59,7 +59,14 @@ browser ──HTTP/WebSocket──▶ server/ (Node, 127.0.0.1:8170)
 
 The server only accepts requests from this computer, from its own page, carrying a token that changes every launch.
 
-## Develop
+## Linux
+
+From a clone: `npm ci && npm run build && npm start` (same as macOS).
+
+Optional desktop integrations on Linux:
+- `wl-clipboard` or `xclip` for clipboard tools
+- `libnotify`/`notify-send` for desktop notifications
+- `xdg-utils` for opening files, apps and URLs## Develop
 
 ```bash
 npm ci

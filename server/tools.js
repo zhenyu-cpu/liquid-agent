@@ -12,6 +12,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { DIRS, bus, isLocal, load, run, save, settings, shell } from "./core.js";
+import { clipboardReadCandidates, clipboardWriteCandidates, notificationCommand, openCommand } from "./platform.js";
 import { backends } from "./backends.js";
 import { memory } from "./memory.js";
 import { look, transcribe } from "./omni.js";
@@ -135,7 +136,7 @@ function fireReminders() {
   bus.emit("reminders", { reminders });
   for (const r of due) {
     bus.emit("notify", { title: "Reminder", body: r.text });
-    run("osascript", ["-e", "on run argv", "-e", 'display notification (item 1 of argv) with title "Liquid Agent" sound name "Glass"', "-e", "end run", r.text]).catch(() => {});
+    notifyOS(r.text);
   }
 }
 setInterval(fireReminders, 15_000).unref();
@@ -214,11 +215,11 @@ export const TOOLS = [
     async run(a) {
       const target = String(a.target ?? "").trim();
       if (/^https?:\/\//i.test(target) || /^[\w-]+(\.[\w-]+)+(\/|$)/.test(target)) {
-        await run("open", [publicURL(target)]);
+        await run(openCommand(), [publicURL(target)]);
       } else if (fs.existsSync(expand(target))) {
-        await run("open", [expand(target)]);
+        await run(openCommand(), [expand(target)]);
       } else {
-        await run("open", ["-a", target]);
+        if (process.platform === "darwin") await run(openCommand(), ["-a", target]); else await run(openCommand(), [target]);
       }
       return `Opened ${target}.`;
     },
@@ -369,7 +370,7 @@ export const TOOLS = [
     params: [],
     kind: "read",
     label: () => "Read the clipboard",
-    run: () => run("pbpaste", []),
+    run: () => readClipboard(),
   },
   {
     name: "set_clipboard",
@@ -377,12 +378,8 @@ export const TOOLS = [
     params: [p("text", "text to copy")],
     kind: "safe",
     label: () => "Copied to the clipboard",
-    run: (a) =>
-      new Promise((resolve, reject) => {
-        const child = spawnStdin("pbcopy", String(a.text ?? ""));
-        child.on("close", () => resolve("Copied."));
-        child.on("error", reject);
-      }),
+    run: (a) => writeClipboard(String(a.text ?? "")),
+
   },
   {
     name: "reminder",
@@ -401,10 +398,44 @@ export const TOOLS = [
   },
 ];
 
+
 function spawnStdin(cmd, input) {
   const child = spawn(cmd, []);
   child.stdin.end(input);
   return child;
+}
+
+// Best-effort desktop notification across platforms.
+async function notifyOS(text) {
+  try {
+    const command = notificationCommand(text);
+    if (!command) return;
+    await run(command.cmd, command.args);
+  } catch {}
+}
+
+async function readClipboard() {
+  const candidates = clipboardReadCandidates();
+  let lastErr = null;
+  for (const [cmd, args] of candidates) {
+    try { return await run(cmd, args); } catch (e) { lastErr = e; }
+  }
+  throw lastErr ?? new Error("No clipboard reader available (install wl-clipboard or xclip).");
+}
+
+async function writeClipboard(text) {
+  const candidates = clipboardWriteCandidates();
+  for (const [cmd, args] of candidates) {
+    try {
+      await new Promise((resolve, reject) => {
+        const child = spawnStdin(cmd, text);
+        child.on("close", (code) => code === 0 ? resolve() : reject(new Error(`${cmd} exited ${code}`)));
+        child.on("error", reject);
+      });
+      return "Copied.";
+    } catch {}
+  }
+  throw new Error("No clipboard writer available (install wl-clipboard or xclip).");
 }
 
 export const toolMap = new Map(TOOLS.map((t) => [t.name, t]));
