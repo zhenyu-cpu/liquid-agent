@@ -28,6 +28,7 @@ import { speak, stopSpeaking } from "../audio/speak";
 import { errorToast, toast, useStore } from "../store";
 import type { Part, Settings as SettingsType } from "../types";
 import { cx } from "../util";
+import { t as translate } from "../i18n";
 import { MODES, modeNote } from "./Composer";
 import { Logo } from "./Sidebar";
 import { Modal, Progress, Segmented, StatusDot, Toggle } from "./ui";
@@ -42,28 +43,28 @@ const PART_ICONS: Record<Part["id"], JSX.Element> = {
   browser: <Globe size={18} />,
 };
 
-const TABS = [
-  { id: "general", label: "General", icon: <User size={15} /> },
-  { id: "voice", label: "Voice", icon: <AudioLines size={15} /> },
-  { id: "safety", label: "Safety", icon: <Shield size={15} /> },
-  { id: "downloads", label: "Downloads", icon: <Download size={15} /> },
-  { id: "advanced", label: "Advanced", icon: <SlidersHorizontal size={15} /> },
-];
-
 export function SettingsModal() {
   const tab = useStore((s) => s.settingsOpen);
   const settings = useStore((s) => s.settings);
   if (!tab || !settings) return null;
+  const lang = settings.language ?? "en";
   const close = () => useStore.setState({ settingsOpen: null });
+  const TABS = [
+    { id: "general", label: translate("settings.tab.general", lang), icon: <User size={15} /> },
+    { id: "voice", label: translate("settings.tab.voice", lang), icon: <AudioLines size={15} /> },
+    { id: "safety", label: translate("settings.tab.safety", lang), icon: <Shield size={15} /> },
+    { id: "downloads", label: translate("settings.tab.downloads", lang), icon: <Download size={15} /> },
+    { id: "advanced", label: translate("settings.tab.advanced", lang), icon: <SlidersHorizontal size={15} /> },
+  ];
 
   return (
-    <Modal title="Settings" onClose={close} wide>
+    <Modal title={translate("settings.title", lang)} onClose={close} wide>
       <div className="settings">
         <nav className="settings-nav">
-          {TABS.map((t) => (
-            <button key={t.id} className={cx("nav-row", tab === t.id && "active")} onClick={() => useStore.setState({ settingsOpen: t.id })}>
-              {t.icon}
-              <span>{t.label}</span>
+          {TABS.map((item) => (
+            <button key={item.id} className={cx("nav-row", tab === item.id && "active")} onClick={() => useStore.setState({ settingsOpen: item.id })}>
+              {item.icon}
+              <span>{item.label}</span>
             </button>
           ))}
         </nav>
@@ -109,24 +110,34 @@ function SavedInput({ value, onSave, placeholder, type = "text", width }: { valu
 }
 
 function General({ settings }: { settings: SettingsType }) {
+  const lang = settings.language ?? "en";
+  const intro = (key: string) => translate(key, lang);
   return (
     <>
-      <h3>General</h3>
-      <Row title="Your name" detail="Used to greet you.">
-        <SavedInput value={settings.userName} placeholder="Your first name" onSave={(userName) => patch({ userName })} />
+      <h3>{intro("general.title")}</h3>
+      <Row title={intro("general.name")} detail={intro("general.name.detail")}>
+        <SavedInput value={settings.userName} placeholder={intro("general.name.placeholder")} onSave={(userName) => patch({ userName })} />
       </Row>
-      <Row title="Personality" detail="How Liquid Agent talks to you.">
-        <select className="input" value={settings.personality} onChange={(e) => patch({ personality: e.target.value as SettingsType["personality"] })}>
-          <option value="friendly">Friendly</option>
-          <option value="concise">Short and to the point</option>
-          <option value="playful">Playful</option>
-          <option value="professional">Professional</option>
+      <Row title={intro("general.language")} detail={intro("general.language.detail")}>
+        <select className="input" value={settings.language} onChange={(e) => patch({ language: e.target.value as SettingsType["language"] })}>
+          <option value="en">English</option>
+          <option value="zh">中文</option>
+          <option value="es">Español</option>
+          <option value="fr">Français</option>
         </select>
       </Row>
-      <Row title="Think before answering" detail="LFM3 1.7B works it out first, then answers. Slower, but much better answers. LFM3 Omni 2B can't think, so pictures and audio are answered right away. Also under the message box.">
+      <Row title={intro("general.personality")} detail={intro("general.personality.detail")}>
+        <select className="input" value={settings.personality} onChange={(e) => patch({ personality: e.target.value as SettingsType["personality"] })}>
+          <option value="friendly">{intro("general.personality.friendly")}</option>
+          <option value="concise">{intro("general.personality.concise")}</option>
+          <option value="playful">{intro("general.personality.playful")}</option>
+          <option value="professional">{intro("general.personality.professional")}</option>
+        </select>
+      </Row>
+      <Row title={intro("general.think")} detail={intro("general.think.detail")}>
         <Toggle checked={settings.reasoning} onChange={(reasoning) => patch({ reasoning })} />
       </Row>
-      <Row title="Appearance">
+      <Row title={intro("general.appearance")}>
         <Segmented
           size="sm"
           value={settings.theme}
@@ -138,10 +149,10 @@ function General({ settings }: { settings: SettingsType }) {
           ]}
         />
       </Row>
-      <Row title="Home folder for files" detail="Where it reads and saves files when you don't give a full path.">
+      <Row title={intro("general.home")} detail={intro("general.home.detail")}>
         <SavedInput value={settings.workspace} placeholder="~" onSave={(workspace) => patch({ workspace })} width={200} />
       </Row>
-      <Row title="Notifications" detail="Tell me when an answer is ready or needs your OK while this tab is in the background.">
+      <Row title={intro("general.notifications")} detail={intro("general.notifications.detail")}>
         <NotificationButton />
       </Row>
     </>

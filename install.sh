@@ -11,7 +11,12 @@ set -euo pipefail
 REPO="${LIQUID_AGENT_REPO:-morriszdweck/liquid-agent}"
 BRANCH="${LIQUID_AGENT_BRANCH:-main}"
 ROOT="${LIQUID_AGENT_HOME:-$HOME/.liquid-agent}"
-DATA="$HOME/Library/Application Support/LiquidAgent"
+OS="$(uname -s)"
+if [ "$OS" = "Darwin" ]; then
+  DATA="$HOME/Library/Application Support/LiquidAgent"
+else
+  DATA="${XDG_DATA_HOME:-$HOME/.local/share}/liquid-agent"
+fi
 NODE_VERSION="22.11.0"
 PORT="${LIQUID_AGENT_PORT:-8170}"
 
@@ -22,9 +27,13 @@ fail() {
   exit 1
 }
 
-[ "$(uname -s)" = "Darwin" ] || fail "Liquid Agent is made for macOS."
 ARCH="$(uname -m)"
-[ "$ARCH" = "arm64" ] || bold "Heads up: Liquid Agent is built for Apple silicon. It will be slow on this Mac."
+OS="$(uname -s)"
+case "$OS" in
+  Darwin) [ "$ARCH" = "arm64" ] || bold "Heads up: Liquid Agent is built for Apple silicon. It will be slow on this Mac." ;;
+  Linux) ;;
+  *) fail "Liquid Agent supports macOS and Linux." ;;
+esac
 command -v curl >/dev/null || fail "curl is missing."
 command -v tar >/dev/null || fail "tar is missing."
 
@@ -46,14 +55,23 @@ find_node() {
 
 NODE="$(find_node)"
 if [ -z "$NODE" ]; then
-  node_arch="arm64"
-  [ "$ARCH" = "x86_64" ] && node_arch="x64"
-  file="node-v$NODE_VERSION-darwin-$node_arch.tar.gz"
+  node_arch="$ARCH"
+  [ "$node_arch" = "aarch64" ] && node_arch="arm64"
+  [ "$node_arch" = "x86_64" ] && node_arch="x64"
+  case "$OS" in
+    Darwin) platform="darwin" ;;
+    Linux) platform="linux" ;;
+  esac
+  file="node-v$NODE_VERSION-$platform-$node_arch.tar.gz"
   step "Getting Node.js $NODE_VERSION"
   tmp="$(mktemp -d)"
   curl -fsSL "https://nodejs.org/dist/v$NODE_VERSION/$file" -o "$tmp/$file"
   expected="$(curl -fsSL "https://nodejs.org/dist/v$NODE_VERSION/SHASUMS256.txt" | awk -v f="$file" '$2 == f { print $1 }')"
-  actual="$(shasum -a 256 "$tmp/$file" | awk '{ print $1 }')"
+  if [ "$OS" = "Darwin" ]; then
+    actual="$(shasum -a 256 "$tmp/$file" | awk '{ print $1 }')"
+  else
+    actual="$(sha256sum "$tmp/$file" | awk '{ print $1 }')"
+  fi
   [ -n "$expected" ] && [ "$expected" = "$actual" ] || fail "The Node.js download didn't match its checksum. Try again."
   rm -rf "$ROOT/node"
   mkdir -p "$ROOT/node"
@@ -111,7 +129,7 @@ running() { curl -fs --max-time 2 "http://127.0.0.1:\$PORT/healthz" 2>/dev/null 
 case "\${1:-open}" in
   open)
     if running; then
-      open "http://127.0.0.1:\$PORT"
+      if command -v xdg-open >/dev/null 2>&1; then xdg-open "http://127.0.0.1:\$PORT"; elif [ "$OS" = "Darwin" ]; then open "http://127.0.0.1:\$PORT"; fi
     else
       mkdir -p "\$DATA/logs"
       nohup "$NODE" "\$ROOT/app/server/index.js" --open </dev/null >>"\$DATA/logs/server.log" 2>&1 &
@@ -128,6 +146,7 @@ chmod +x "$ROOT/bin/liquid-agent"
 mkdir -p "$HOME/.local/bin"
 ln -sf "$ROOT/bin/liquid-agent" "$HOME/.local/bin/liquid-agent"
 
+if [ "$OS" = "Darwin" ]; then
 # A small app for Launchpad, Spotlight and the Dock.
 APP="$HOME/Applications/Liquid Agent.app"
 mkdir -p "$HOME/Applications"
@@ -136,6 +155,23 @@ osacompile -o "$APP" -e "do shell script quoted form of \"$ROOT/bin/liquid-agent
 if [ -d "$APP" ]; then
   # Give it the Liquid Agent icon; a plain one is fine if this doesn't work.
   osascript -l JavaScript -e "ObjC.import('AppKit'); const img = \$.NSImage.alloc.initWithContentsOfFile('$ROOT/app/web/public/icon.svg'); if (img && img.isValid) \$.NSWorkspace.sharedWorkspace.setIconForFileOptions(img, '$APP', 0);" >/dev/null 2>&1 || true
+fi
+
+fi
+
+if [ "$OS" = "Linux" ]; then
+  mkdir -p "$HOME/.local/share/applications"
+  cat > "$HOME/.local/share/applications/liquid-agent.desktop" <<EOF
+[Desktop Entry]
+Type=Application
+Name=Liquid Agent
+Exec="$ROOT/bin/liquid-agent" open
+Icon=$ROOT/app/web/public/icon.svg
+Terminal=false
+Categories=Utility;Development;
+EOF
+  chmod +x "$HOME/.local/share/applications/liquid-agent.desktop"
+  command -v update-desktop-database >/dev/null 2>&1 && update-desktop-database "$HOME/.local/share/applications" || true
 fi
 
 bold "Liquid Agent is installed."

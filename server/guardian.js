@@ -2,6 +2,7 @@
 // commands are never left to a model: they always ask the user.
 
 import { isLocal, settings } from "./core.js";
+import { guardianClipboardCommand, guardianOpenCommand } from "./platform.js";
 
 const HARD_DENY = [
   "rm -rf /",
@@ -54,9 +55,9 @@ export function forAuto(tool, args = {}) {
     case "fetch_url":
       return { tool: "WebFetch", args: String(args.url ?? "") };
     case "open":
-      return { tool: "Bash", args: `open ${JSON.stringify(String(args.target ?? ""))}` };
+      return { tool: "Bash", args: `${guardianOpenCommand()} ${JSON.stringify(String(args.target ?? ""))}` };
     case "set_clipboard":
-      return { tool: "Bash", args: `pbcopy <<< ${JSON.stringify(String(args.text ?? ""))}` };
+      return { tool: "Bash", args: `${guardianClipboardCommand()} <<< ${JSON.stringify(String(args.text ?? ""))}` };
     default:
       return { tool, args: compact(args) };
   }

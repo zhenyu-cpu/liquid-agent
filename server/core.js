@@ -2,6 +2,7 @@
 // and child-process helpers.
 
 import { spawn } from "node:child_process";
+import { systemShell } from "./platform.js";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -83,6 +84,7 @@ export const DEFAULTS = {
   personality: "friendly",
   approvalMode: "askAlways", // askAlways | approveForMe (needs Auto 200M) | fullAuto
   theme: "system",
+  language: "en",
   voice: "female",
   speakReplies: false,
   workspace: HOME,
@@ -126,6 +128,7 @@ const CHOICES = {
   personality: Object.keys(PERSONALITIES),
   approvalMode: ["askAlways", "approveForMe", "fullAuto"],
   theme: ["system", "light", "dark"],
+  language: ["en", "zh", "es", "fr"],
   voice: ["female", "male"],
 };
 
@@ -206,7 +209,7 @@ export function run(cmd, args, { cwd, env, timeout = 600_000, signal } = {}) {
 /** zsh command for the shell tool. Never throws: failures come back as text the model can read. */
 export function shell(command, { cwd, timeout = 60_000, signal } = {}) {
   return new Promise((resolve) => {
-    const child = spawn("/bin/zsh", ["-lc", command], { cwd, signal });
+    const child = spawn(systemShell(), ["-lc", command], { cwd, signal });
     let out = "";
     const add = (d) => {
       if (out.length < MAX_OUTPUT) out += d;

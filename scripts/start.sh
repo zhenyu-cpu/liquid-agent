@@ -4,7 +4,8 @@
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
-DATA="$HOME/Library/Application Support/LiquidAgent"
+OS="$(uname -s)"
+if [ "$OS" = "Darwin" ]; then DATA="$HOME/Library/Application Support/LiquidAgent"; else DATA="${XDG_DATA_HOME:-$HOME/.local/share}/liquid-agent"; fi
 NODE_VERSION="22.11.0"
 
 find_node() {
@@ -24,7 +25,7 @@ if [ -z "$NODE" ]; then
   [ "$arch" = "x86_64" ] && arch="x64"
   echo "Getting Node.js $NODE_VERSION (one time only)…"
   mkdir -p "$DATA/node"
-  curl -fsSL "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-darwin-$arch.tar.gz" | tar -xz -C "$DATA/node" --strip-components 1
+  curl -fsSL "https://nodejs.org/dist/v$NODE_VERSION/node-v$NODE_VERSION-$( [ "$OS" = "Darwin" ] && echo darwin || echo linux)-$arch.tar.gz" | tar -xz -C "$DATA/node" --strip-components 1
   NODE="$DATA/node/bin/node"
 fi
 export PATH="$(dirname "$NODE"):$PATH"

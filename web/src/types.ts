@@ -74,6 +74,7 @@ export type Settings = {
   personality: "friendly" | "concise" | "playful" | "professional";
   approvalMode: ApprovalMode;
   theme: "system" | "light" | "dark";
+  language: "en" | "zh" | "es" | "fr";
   voice: "female" | "male";
   speakReplies: boolean;
   workspace: string;
